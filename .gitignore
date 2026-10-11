@@ -5,3 +5,4 @@ ALL/
 node_modules/
 *.lock
 *.uml
+git
