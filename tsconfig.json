@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    /* Modern browser language and API baseline */
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+
+    /* Vite bundles the application */
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["vite/client", "bun"],
+    "allowArbitraryExtensions": true,
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* Linting */
+    // "noUnusedLocals": true,
+    // "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+    "resolveJsonModule": true,
+    "strictNullChecks": true,
+
+    // Incremental JavaScript-to-TypeScript migration.
+    "allowJs": true,
+    "checkJs": false,
+    "strict": false,
+
+    // Keep initial migration noise manageable.
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
+  },
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.js"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -1,0 +1,964 @@
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■-< START >-■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+// FILE NAME: : classes.uml 
+// TYPE     : .UML
+// PATH     : classes.uml
+// PROCESSED: 2026-10-09T19:04:39.795Z
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■-< START >-■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+@startuml FireworksApplication
+!theme plain
+hide empty members
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+title Fireworks JavaScript — UML Class Diagram
+
+' ============================================================
+' External/imported dependencies
+' ============================================================
+
+class Stage <<external>> {
+  +id: string
+  +width: number
+  +height: number
+  +dpr: number
+  +ctx: CanvasRenderingContext2D
+  +resize(width: number, height: number): void
+  +addEventListener(type: string, listener: Function): void
+}
+
+class MyMath <<external>> {
+  {static} +random(min: number, max: number): number
+  {static} +clamp(value: number, min: number, max: number): number
+  {static} +randomChoice<T>(items: T[]): T
+  {static} +pointDist(x1: number, y1: number, x2: number, y2: number): number
+  {static} +pointAngle(x1: number, y1: number, x2: number, y2: number): number
+}
+
+class fscreen <<external>> {
+  {static} +fullscreenEnabled: boolean
+  {static} +fullscreenElement: Element | null
+  {static} +exitFullscreen(): Promise<void>
+  {static} +requestFullscreen(element: Element): Promise<void>
+  {static} +addEventListener(type: "fullscreenchange", listener: Function): void
+}
+
+' ============================================================
+' Value objects / records
+' ============================================================
+
+class RGBTuple <<record>> {
+  +r: number
+  +g: number
+  +b: number
+}
+
+class HelpTopic <<record>> {
+  +header: string
+  +body: string
+}
+
+class AppConfig <<record>> {
+  +quality: string
+  +shell: string
+  +size: string
+  +autoLaunch: boolean
+  +finale: boolean
+  +skyLighting: string
+  +hideControls: boolean
+  +longExposure: boolean
+  +scaleFactor: number
+}
+
+class ApplicationState <<record>> {
+  +paused: boolean = true
+  +soundEnabled: boolean = false
+  +menuOpen: boolean = false
+  +openHelpTopic: HelpTopicKey | null = null
+  +fullscreen: boolean = isFullscreen()
+  +config: AppConfig
+}
+
+class PersistedDataV11 <<record>> {
+  +quality: string
+  +size: string
+  +skyLighting: string
+}
+
+class PersistedDataV12 <<record>> {
+  +quality: string
+  +size: string
+  +skyLighting: string
+  +scaleFactor: number
+}
+
+class PersistedStoreV11 <<record>> {
+  +schemaVersion: "1.1"
+  +data: PersistedDataV11
+}
+
+class PersistedStoreV12 <<record>> {
+  +schemaVersion: "1.2"
+  +data: PersistedDataV12
+}
+
+class ShellOptions <<record>> {
+  +shellSize: number
+  +spreadSize: number
+  +starLife: number
+  +starDensity: number | undefined
+  +starCount: number | undefined
+  +starLifeVariation: number | undefined
+  +color: ColorCode | "random" | ColorCode[]
+  +secondColor: ColorCode | null | undefined
+  +glitter: GlitterType | ""
+  +glitterColor: ColorCode | undefined
+  +pistil: boolean | undefined
+  +pistilColor: ColorCode | false | undefined
+  +streamers: boolean | undefined
+  +crossette: boolean | undefined
+  +floral: boolean | undefined
+  +fallingLeaves: boolean | undefined
+  +crackle: boolean | undefined
+  +horsetail: boolean | undefined
+  +ring: boolean | undefined
+  +strobe: boolean | undefined
+  +strobeColor: ColorCode | null | undefined
+}
+
+class ShellPosition <<record>> {
+  +size: number
+  +x: number
+  +height: number
+}
+
+class StarParticle <<record>> {
+  +visible: boolean
+  +heavy: boolean
+  +x: number
+  +y: number
+  +prevX: number
+  +prevY: number
+  +color: ColorCode
+  +speedX: number
+  +speedY: number
+  +life: number
+  +fullLife: number
+  +updateFrame: number | undefined
+  +spinAngle: number
+  +spinSpeed: number
+  +spinRadius: number
+  +sparkFreq: number
+  +sparkSpeed: number
+  +sparkTimer: number
+  +sparkColor: ColorCode
+  +sparkLife: number
+  +sparkLifeVariation: number
+  +strobe: boolean
+  +strobeFreq: number | undefined
+  +secondColor: ColorCode | null
+  +transitionTime: number
+  +colorChanged: boolean
+  +onDeath: ((star: StarParticle) => void) | null
+}
+
+class SparkParticle <<record>> {
+  +x: number
+  +y: number
+  +prevX: number
+  +prevY: number
+  +color: ColorCode
+  +speedX: number
+  +speedY: number
+  +life: number
+}
+
+class BurstFlashInstance <<record>> {
+  +x: number
+  +y: number
+  +radius: number
+}
+
+class AudioSourceConfig <<record>> {
+  +volume: number
+  +playbackRateMin: number
+  +playbackRateMax: number
+  +fileNames: string[]
+  +buffers: AudioBuffer[] | undefined
+}
+
+class PointerEventData <<record>> {
+  +x: number
+  +y: number
+  +onCanvas: boolean | undefined
+}
+
+' ============================================================
+' Module-level constants, globals, and functions
+' ============================================================
+
+class FireworksModule <<module>> {
+  ' ---- Environment constants ----
+  {static} +IS_MOBILE: boolean = window.innerWidth <= 640
+  {static} +IS_DESKTOP: boolean = window.innerWidth > 800
+  {static} +IS_HEADER: boolean = IS_DESKTOP && window.innerHeight < 300
+  {static} +IS_HIGH_END_DEVICE: boolean = navigator.hardwareConcurrency >= (window.innerWidth <= 1024 ? 4 : 8)
+  {static} +MAX_WIDTH: number = 7680
+  {static} +MAX_HEIGHT: number = 4320
+  {static} +GRAVITY: number = 0.9
+  {static} +PI_2: number = Math.PI * 2
+  {static} +PI_HALF: number = Math.PI * 0.5
+
+  ' ---- Quality constants ----
+  {static} +QUALITY_LOW: number = 1
+  {static} +QUALITY_NORMAL: number = 2
+  {static} +QUALITY_HIGH: number = 3
+
+  ' ---- Sky-light constants ----
+  {static} +SKY_LIGHT_NONE: number = 0
+  {static} +SKY_LIGHT_DIM: number = 1
+  {static} +SKY_LIGHT_NORMAL: number = 2
+
+  ' ---- Color constants ----
+  {static} +COLOR.Red: ColorCode = "#ff0043"
+  {static} +COLOR.Green: ColorCode = "#14fc56"
+  {static} +COLOR.Blue: ColorCode = "#1e7fff"
+  {static} +COLOR.Purple: ColorCode = "#e60aff"
+  {static} +COLOR.Gold: ColorCode = "#ffbf36"
+  {static} +COLOR.White: ColorCode = "#ffffff"
+  {static} +INVISIBLE: ColorCode = "_INVISIBLE_"
+
+  ' ---- Runtime globals ----
+  {static} +simSpeed: number = 1
+  {static} +stageW: number | undefined
+  {static} +stageH: number | undefined
+  {static} +quality: number = 1
+  {static} +isLowQuality: boolean = false
+  {static} +isNormalQuality: boolean = true
+  {static} +isHighQuality: boolean = false
+  {static} +lastColor: ColorCode | undefined
+  {static} +isFirstSeq: boolean = true
+  {static} +finaleCount: number = 32
+  {static} +currentFinaleCount: number = 0
+  {static} +activePointerCount: number = 0
+  {static} +isUpdatingSpeed: boolean = false
+  {static} +currentFrame: number = 0
+  {static} +speedBarOpacity: number = 0
+  {static} +autoLaunchTime: number = 0
+
+  ' ---- Derived constants ----
+  {static} +COLOR_NAMES: string[] = Object.keys(COLOR)
+  {static} +COLOR_CODES: ColorCode[] = COLOR_NAMES.map(COLOR[colorName])
+  {static} +COLOR_CODES_W_INVIS: ColorCode[] = [...COLOR_CODES, INVISIBLE]
+  {static} +COLOR_CODE_INDEXES: Map<ColorCode, number>
+  {static} +COLOR_TUPLES: Map<ColorCode, RGBTuple>
+  {static} +fastShellBlacklist: string[] = ["Falling Leaves", "Floral", "Willow"]
+  {static} +shellNames: string[] = Object.keys(shellTypes)
+  {static} +sequences: SequenceFunction[] =
+    [seqRandomShell, seqTwoRandom, seqTriple, seqPyramid, seqSmallBarrage]
+
+  ' ---- Stage instances ----
+  {static} +trailsStage: Stage = new Stage("trails-canvas")
+  {static} +mainStage: Stage = new Stage("main-canvas")
+  {static} +stages: Stage[] = [trailsStage, mainStage]
+
+  ' ---- Functions ----
+  {static} +getDefaultScaleFactor(): number
+  {static} +fullscreenEnabled(): boolean
+  {static} +isFullscreen(): boolean
+  {static} +toggleFullscreen(): void
+  {static} +togglePause(toggle?: boolean): void
+  {static} +toggleSound(toggle?: boolean): void
+  {static} +toggleMenu(toggle?: boolean): void
+  {static} +updateConfig(nextConfig?: Partial<AppConfig>): void
+  {static} +configDidUpdate(): void
+
+  {static} +isRunning(state?: ApplicationState): boolean
+  {static} +soundEnabledSelector(state?: ApplicationState): boolean
+  {static} +canPlaySoundSelector(state?: ApplicationState): boolean
+  {static} +qualitySelector(): number
+  {static} +shellNameSelector(): string
+  {static} +shellSizeSelector(): number
+  {static} +finaleSelector(): boolean
+  {static} +skyLightingSelector(): number
+  {static} +scaleFactorSelector(): number
+
+  {static} +renderApp(state: ApplicationState): void
+  {static} +handleStateChange(state: ApplicationState, prevState: ApplicationState): void
+  {static} +getConfigFromDOM(): AppConfig
+  {static} +init(): void
+
+  {static} +randomColorSimple(): ColorCode
+  {static} +randomColor(options?: RandomColorOptions): ColorCode
+  {static} +whiteOrGold(): ColorCode
+  {static} +makePistilColor(shellColor: ColorCode): ColorCode
+
+  {static} +randomShellName(): string
+  {static} +randomShell(size: number): ShellOptions
+  {static} +shellFromConfig(size: number): ShellOptions
+  {static} +randomFastShell(): ShellFactory
+
+  {static} +fitShellPositionInBoundsH(position: number): number
+  {static} +fitShellPositionInBoundsV(position: number): number
+  {static} +getRandomShellPositionH(): number
+  {static} +getRandomShellPositionV(): number
+  {static} +getRandomShellSize(): ShellPosition
+  {static} +launchShellFromConfig(event?: PointerEventData): void
+
+  {static} +seqRandomShell(): number
+  {static} +seqRandomFastShell(): number
+  {static} +seqTwoRandom(): number
+  {static} +seqTriple(): number = 4000
+  {static} +seqPyramid(): number
+  {static} +seqSmallBarrage(): number
+  {static} +startSequence(): number | undefined
+
+  {static} +handlePointerStart(event: PointerEventData): void
+  {static} +handlePointerEnd(event: PointerEventData): void
+  {static} +handlePointerMove(event: PointerEventData): void
+  {static} +handleKeydown(event: KeyboardEvent): void
+  {static} +handleResize(): void
+  {static} +updateSpeedFromEvent(event: PointerEventData): boolean
+  {static} +updateGlobals(timeStep: number, lag: number): void
+  {static} +update(frameTime: number, lag: number): void
+  {static} +render(speed: number): void
+  {static} +colorSky(speed: number): void
+
+  {static} +createParticleCollection(): ParticleCollection
+  {static} +createParticleArc(
+    start: number,
+    arcLength: number,
+    count: number,
+    randomness: number,
+    particleFactory: (angle: number) => void
+  ): void
+  {static} +createBurst(
+    count: number,
+    particleFactory: (angle: number, speedMultiplier: number) => void,
+    startAngle: number = 0,
+    arcLength: number = PI_2
+  ): void
+
+  {static} +crossetteEffect(star: StarParticle): void
+  {static} +floralEffect(star: StarParticle): void
+  {static} +fallingLeavesEffect(star: StarParticle): void
+  {static} +crackleEffect(star: StarParticle): void
+  {static} +setLoadingStatus(status: string): void
+}
+
+note right of FireworksModule
+  Local constant values used by major methods:
+
+  getDefaultScaleFactor():
+  • mobile -> 0.9
+  • header -> 0.75
+  • otherwise -> 1
+
+  handleResize():
+  • small-screen threshold = 420
+  • containerW = min(window.innerWidth, 7680)
+  • containerH = width <= 420 ? height : min(height, 4320)
+
+  updateSpeedFromEvent():
+  • bottom-edge threshold = 44
+  • edge padding = 16
+
+  colorSky():
+  • maxStarCount = 500
+  • colorChange = 10
+  • maxSkySaturation = skyLightingSelector() * 15
+
+  createBurst():
+  • startAngle default = 0
+  • arcLength default = PI_2
+
+  seqSmallBarrage:
+  • cooldown = 15000
+  • lastCalled initialized to Date.now()
+end note
+
+' ============================================================
+' State container
+' ============================================================
+
+class Store <<singleton>> {
+  -_listeners: Set<StateListener>
+  +state: ApplicationState
+  -_dispatch(prevState: ApplicationState): void
+  +setState(nextState: Partial<ApplicationState>): void
+  +subscribe(listener: StateListener): () => boolean
+  +load(): void
+  +persist(): void
+}
+
+note right of Store
+  Initial AppConfig values:
+  • quality = String(IS_HIGH_END_DEVICE ? 3 : 2)
+  • shell = "Random"
+  • size = IS_DESKTOP ? "3" : IS_HEADER ? "1.2" : "2"
+  • autoLaunch = true
+  • finale = false
+  • skyLighting = "2"
+  • hideControls = IS_HEADER
+  • longExposure = false
+  • scaleFactor = getDefaultScaleFactor()
+
+  Persistence:
+  • localStorage key = "cm_fireworks_data"
+  • current schemaVersion = "1.2"
+  • legacy schemaVersion key = "schemaVersion"
+  • legacy config-size key = "configSize"
+end note
+
+' ============================================================
+' UI constants / DOM nodes
+' ============================================================
+
+class AppNodes <<singleton>> {
+  +stageContainer: HTMLElement
+  +canvasContainer: HTMLElement
+  +controls: HTMLElement
+  +menu: HTMLElement
+  +menuInnerWrap: HTMLElement
+  +pauseBtn: HTMLElement
+  +pauseBtnSVG: SVGUseElement
+  +soundBtn: HTMLElement
+  +soundBtnSVG: SVGUseElement
+  +shellType: HTMLSelectElement
+  +shellTypeLabel: HTMLElement
+  +shellSize: HTMLSelectElement
+  +shellSizeLabel: HTMLElement
+  +quality: HTMLSelectElement
+  +qualityLabel: HTMLElement
+  +skyLighting: HTMLSelectElement
+  +skyLightingLabel: HTMLElement
+  +scaleFactor: HTMLSelectElement
+  +scaleFactorLabel: HTMLElement
+  +autoLaunch: HTMLInputElement
+  +autoLaunchLabel: HTMLElement
+  +finaleModeFormOption: HTMLElement
+  +finaleMode: HTMLInputElement
+  +finaleModeLabel: HTMLElement
+  +hideControls: HTMLInputElement
+  +hideControlsLabel: HTMLElement
+  +fullscreenFormOption: HTMLElement
+  +fullscreen: HTMLInputElement
+  +fullscreenLabel: HTMLElement
+  +longExposure: HTMLInputElement
+  +longExposureLabel: HTMLElement
+  +helpModal: HTMLElement
+  +helpModalOverlay: HTMLElement
+  +helpModalHeader: HTMLElement
+  +helpModalBody: HTMLElement
+  +helpModalCloseBtn: HTMLElement
+}
+
+note right of AppNodes
+  Initial selector constants:
+  stageContainer=".stage-container"
+  canvasContainer=".canvas-container"
+  controls=".controls"; menu=".menu"
+  menuInnerWrap=".menu__inner-wrap"
+  pauseBtn=".pause-btn"; pauseBtnSVG=".pause-btn use"
+  soundBtn=".sound-btn"; soundBtnSVG=".sound-btn use"
+  shellType=".shell-type"; shellTypeLabel=".shell-type-label"
+  shellSize=".shell-size"; shellSizeLabel=".shell-size-label"
+  quality=".quality-ui"; qualityLabel=".quality-ui-label"
+  skyLighting=".sky-lighting"
+  skyLightingLabel=".sky-lighting-label"
+  scaleFactor=".scaleFactor"
+  scaleFactorLabel=".scaleFactor-label"
+  autoLaunch=".auto-launch"
+  autoLaunchLabel=".auto-launch-label"
+  finaleModeFormOption=".form-option--finale-mode"
+  finaleMode=".finale-mode"
+  finaleModeLabel=".finale-mode-label"
+  hideControls=".hide-controls"
+  hideControlsLabel=".hide-controls-label"
+  fullscreenFormOption=".form-option--fullscreen"
+  fullscreen=".fullscreen"
+  fullscreenLabel=".fullscreen-label"
+  longExposure=".long-exposure"
+  longExposureLabel=".long-exposure-label"
+  helpModal=".help-modal"
+  helpModalOverlay=".help-modal__overlay"
+  helpModalHeader=".help-modal__header"
+  helpModalBody=".help-modal__body"
+  helpModalCloseBtn=".help-modal__close-btn"
+end note
+
+class HelpContent <<singleton>> {
+  +shellType: HelpTopic
+  +shellSize: HelpTopic
+  +quality: HelpTopic
+  +skyLighting: HelpTopic
+  +scaleFactor: HelpTopic
+  +autoLaunch: HelpTopic
+  +finaleMode: HelpTopic
+  +hideControls: HelpTopic
+  +fullscreen: HelpTopic
+  +longExposure: HelpTopic
+}
+
+class NodeKeyToHelpKey <<constant-map>> {
+  +shellTypeLabel: "shellType"
+  +shellSizeLabel: "shellSize"
+  +qualityLabel: "quality"
+  +skyLightingLabel: "skyLighting"
+  +scaleFactorLabel: "scaleFactor"
+  +autoLaunchLabel: "autoLaunch"
+  +finaleModeLabel: "finaleMode"
+  +hideControlsLabel: "hideControls"
+  +fullscreenLabel: "fullscreen"
+  +longExposureLabel: "longExposure"
+}
+
+' ============================================================
+' Shell factories
+' ============================================================
+
+class ShellFactories <<singleton>> {
+  {static} +crysanthemumShell(size: number = 1): ShellOptions
+  {static} +ghostShell(size: number = 1): ShellOptions
+  {static} +strobeShell(size: number = 1): ShellOptions
+  {static} +palmShell(size: number = 1): ShellOptions
+  {static} +ringShell(size: number = 1): ShellOptions
+  {static} +crossetteShell(size: number = 1): ShellOptions
+  {static} +floralShell(size: number = 1): ShellOptions
+  {static} +fallingLeavesShell(size: number = 1): ShellOptions
+  {static} +willowShell(size: number = 1): ShellOptions
+  {static} +crackleShell(size: number = 1): ShellOptions
+  {static} +horsetailShell(size: number = 1): ShellOptions
+}
+
+class ShellTypes <<constant-map>> {
+  +Random: ShellFactory = randomShell
+  +Crackle: ShellFactory = crackleShell
+  +Crossette: ShellFactory = crossetteShell
+  +Crysanthemum: ShellFactory = crysanthemumShell
+  +"Falling Leaves": ShellFactory = fallingLeavesShell
+  +Floral: ShellFactory = floralShell
+  +Ghost: ShellFactory = ghostShell
+  +"Horse Tail": ShellFactory = horsetailShell
+  +Palm: ShellFactory = palmShell
+  +Ring: ShellFactory = ringShell
+  +Strobe: ShellFactory = strobeShell
+  +Willow: ShellFactory = willowShell
+}
+
+' ============================================================
+' Shell domain object
+' ============================================================
+
+class Shell {
+  +shellSize: number
+  +spreadSize: number
+  +starCount: number
+  +starLife: number
+  +starLifeVariation: number = options.starLifeVariation || 0.125
+  +starDensity: number | undefined
+  +color: ColorCode | "random" | ColorCode[]
+  +secondColor: ColorCode | null | undefined
+  +glitter: GlitterType | ""
+  +glitterColor: ColorCode | ColorCode[]
+  +pistil: boolean | undefined
+  +pistilColor: ColorCode | false | undefined
+  +streamers: boolean | undefined
+  +crossette: boolean | undefined
+  +floral: boolean | undefined
+  +fallingLeaves: boolean | undefined
+  +crackle: boolean | undefined
+  +horsetail: boolean | undefined
+  +ring: boolean | undefined
+  +strobe: boolean | undefined
+  +strobeColor: ColorCode | null | undefined
+  +comet: StarParticle | undefined
+
+  +Shell(options: ShellOptions)
+  +launch(position: number, launchHeight: number): void
+  +burst(x: number, y: number): void
+}
+
+note right of Shell
+  Constructor defaults:
+  • starLifeVariation = options.starLifeVariation || 0.125
+  • color = options.color || randomColor()
+  • glitterColor = options.glitterColor || color
+  • default starCount =
+    max(6, (spreadSize / 54)^2 * (starDensity || 1))
+
+  launch() local constants:
+  • hpad = 60
+  • vpad = 50
+  • minHeightPercent = 0.45
+  • launchVelocity = (launchDistance * 0.04)^0.64
+end note
+
+' ============================================================
+' Particle managers / object pools
+' ============================================================
+
+class BurstFlash <<singleton>> {
+  +active: BurstFlashInstance[] = []
+  -_pool: BurstFlashInstance[] = []
+  -_new(): BurstFlashInstance
+  +add(x: number, y: number, radius: number): BurstFlashInstance
+  +returnInstance(instance: BurstFlashInstance): void
+}
+
+class Star <<singleton>> {
+  +drawWidth: number = 3
+  +airDrag: number = 0.98
+  +airDragHeavy: number = 0.992
+  +active: ParticleCollection
+  -_pool: StarParticle[] = []
+  -_new(): StarParticle
+  +add(
+    x: number,
+    y: number,
+    color: ColorCode,
+    angle: number,
+    speed: number,
+    life: number,
+    speedOffX?: number,
+    speedOffY?: number
+  ): StarParticle
+  +returnInstance(instance: StarParticle): void
+}
+
+class Spark <<singleton>> {
+  +drawWidth: number = 0
+  +airDrag: number = 0.9
+  +active: ParticleCollection
+  -_pool: SparkParticle[] = []
+  -_new(): SparkParticle
+  +add(
+    x: number,
+    y: number,
+    color: ColorCode,
+    angle: number,
+    speed: number,
+    life: number
+  ): SparkParticle
+  +returnInstance(instance: SparkParticle): void
+}
+
+' ============================================================
+' Audio manager
+' ============================================================
+
+class SoundManager <<singleton>> {
+  +baseURL: string = "https://s3-us-west-2.amazonaws.com/s.cdpn.io/329180/"
+  +ctx: AudioContext
+  +sources: Map<SoundType, AudioSourceConfig>
+  -_lastSmallBurstTime: number = 0
+  +preload(): Promise<AudioBuffer[]>
+  +pauseAll(): void
+  +resumeAll(): void
+  +playSound(type: SoundType, scale: number = 1): void
+}
+
+note right of SoundManager
+  sources constants:
+
+  lift:
+  volume=1; playbackRateMin=0.85; playbackRateMax=0.95
+  files=["lift1.mp3","lift2.mp3","lift3.mp3"]
+
+  burst:
+  volume=1; playbackRateMin=0.8; playbackRateMax=0.9
+  files=["burst1.mp3","burst2.mp3"]
+
+  burstSmall:
+  volume=0.25; playbackRateMin=0.8; playbackRateMax=1
+  files=["burst-sm-1.mp3","burst-sm-2.mp3"]
+
+  crackle:
+  volume=0.2; playbackRateMin=1; playbackRateMax=1
+  files=["crackle1.mp3"]
+
+  crackleSmall:
+  volume=0.3; playbackRateMin=1; playbackRateMax=1
+  files=["crackle-sm-1.mp3"]
+end note
+
+' ============================================================
+' Type aliases
+' ============================================================
+
+class "ColorCode" <<typedef>> {
+  = "#ff0043" | "#14fc56" | "#1e7fff" |
+    "#e60aff" | "#ffbf36" | "#ffffff" | "_INVISIBLE_"
+}
+
+class "GlitterType" <<typedef>> {
+  = "light" | "medium" | "heavy" |
+    "thick" | "streamer" | "willow" | ""
+}
+
+class "SoundType" <<typedef>> {
+  = "lift" | "burst" | "burstSmall" |
+    "crackle" | "crackleSmall"
+}
+
+class "HelpTopicKey" <<typedef>> {
+  = "shellType" | "shellSize" | "quality" |
+    "skyLighting" | "scaleFactor" | "autoLaunch" |
+    "finaleMode" | "hideControls" | "fullscreen" |
+    "longExposure"
+}
+
+class "RandomColorOptions" <<typedef>> {
+  +notSame?: boolean
+  +notColor?: ColorCode
+  +limitWhite?: boolean
+}
+
+class "ParticleCollection" <<typedef>> {
+  +[color: ColorCode]: StarParticle[] | SparkParticle[]
+}
+
+class "ShellFactory" <<typedef>> {
+  +(size: number): ShellOptions
+}
+
+class "SequenceFunction" <<typedef>> {
+  +(): number
+}
+
+class "StateListener" <<typedef>> {
+  +(state: ApplicationState, previousState: ApplicationState): void
+}
+
+' ============================================================
+' Associations / dependencies
+' ============================================================
+
+FireworksModule --> Stage : creates / resizes / listens
+FireworksModule --> Store : reads and updates state
+FireworksModule --> AppNodes : renders and binds DOM events
+FireworksModule --> HelpContent : displays selected topic
+FireworksModule --> NodeKeyToHelpKey : maps label to help topic
+FireworksModule --> ShellTypes : selects factory
+FireworksModule --> ShellFactories : invokes
+FireworksModule --> Shell : creates
+FireworksModule --> Star : updates / renders
+FireworksModule --> Spark : updates / renders
+FireworksModule --> BurstFlash : queues / renders
+FireworksModule --> SoundManager : plays / controls audio
+FireworksModule --> MyMath : utility methods
+FireworksModule --> fscreen : fullscreen API
+
+Store *-- ApplicationState
+ApplicationState *-- AppConfig
+Store o-- StateListener
+Shell ..> ShellOptions : constructed from
+Shell --> Star : creates comet and burst particles
+Shell --> BurstFlash : queues explosion flash
+Shell --> SoundManager : plays lift/burst sound
+Star *-- StarParticle
+Spark *-- SparkParticle
+BurstFlash *-- BurstFlashInstance
+SoundManager *-- AudioSourceConfig
+ShellTypes o-- ShellFactory
+HelpContent *-- HelpTopic
+FireworksModule --> RGBTuple : COLOR_TUPLES values
+
+@enduml
+
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■-<  END  >-■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+// FILE NAME: : classes.uml 
+// TYPE     : .UML
+// PATH     : classes.uml
+// PROCESSED: 2026-10-09T19:04:39.795Z
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■-<  END  >-■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■-< START >-■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+// FILE NAME: : oxfmt.config.ts 
+// TYPE     : .TS
+// PATH     : oxfmt.config.ts
+// PROCESSED: 2026-10-09T19:04:39.778Z
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■-< START >-■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+// FILE-PATH: oxfmt.config.ts
+
+import { defineConfig } from 'oxfmt';
+
+export default defineConfig({
+    printWidth: 120,
+    tabWidth: 4,
+    useTabs: false,
+    semi: true,
+    singleQuote: true,
+    jsxSingleQuote: true,
+    quoteProps: 'as-needed',
+    trailingComma: 'all',
+    bracketSpacing: true,
+    bracketSameLine: true,
+    arrowParens: 'always',
+    endOfLine: 'lf',
+    insertFinalNewline: true,
+    htmlWhitespaceSensitivity: 'strict',
+    singleAttributePerLine: false,
+    objectWrap: 'preserve',
+    ignorePatterns: [
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/public/**',
+        '**/*.txt',
+        '**/*.pdf',
+        '**/ALL/**',
+        '**/ALL_REBUILT/**',
+        '**/logs/**',
+    ],
+    overrides: [
+        {
+            files: ['*.json', '*.jsonc', '*.md', '*.toml'],
+            options: {
+                tabWidth: 2,
+            },
+        },
+    ],
+});
+
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■-<  END  >-■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+// FILE NAME: : oxfmt.config.ts 
+// TYPE     : .TS
+// PATH     : oxfmt.config.ts
+// PROCESSED: 2026-10-09T19:04:39.778Z
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■-<  END  >-■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■-< START >-■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+// FILE NAME: : oxlint.config.ts 
+// TYPE     : .TS
+// PATH     : oxlint.config.ts
+// PROCESSED: 2026-10-09T19:04:39.778Z
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■-< START >-■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+// FILE-PATH: oxlint.config.ts
+
+import { defineConfig } from 'oxlint';
+
+export default defineConfig({
+    plugins: ['typescript', 'unicorn', 'oxc', 'react'],
+    categories: {
+        correctness: 'error',
+    },
+    env: {
+        builtin: true,
+        browser: true,
+        node: true,
+    },
+    globals: {
+        fscreen: 'readonly',
+    },
+    ignorePatterns: [
+        '.vscode/**',
+        '**/ALL/**',
+        '**/ALL_REBUILT/**',
+        '**/coverage/**',
+        '**/logs/**',
+        '**/node_modules/**',
+        '**/public/**',
+        '**/dist/**',
+        '**/*.txt',
+        '**/*.pdf',
+    ],
+    rules: {
+        'no-unused-vars': 'error',
+        'typescript/no-unused-vars': 'error',
+        'typescript/no-explicit-any': [
+            'warn',
+            {
+                ignoreRestArgs: false,
+            },
+        ],
+        'no-console': 'off',
+        'no-irregular-whitespace': 'off',
+        'unicorn/empty-brace-spaces': 'off',
+        'typescript/prefer-nullish-coalescing': 'error',
+        'typescript/prefer-optional-chain': 'error',
+    },
+    options: {
+        typeAware: true,
+        typeCheck: true,
+    },
+});
+
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■-<  END  >-■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+// FILE NAME: : oxlint.config.ts 
+// TYPE     : .TS
+// PATH     : oxlint.config.ts
+// PROCESSED: 2026-10-09T19:04:39.778Z
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■-<  END  >-■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■-< START >-■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+// FILE NAME: : config.ts 
+// TYPE     : .TS
+// PATH     : src/constants/config.ts
+// PROCESSED: 2026-10-09T19:04:39.778Z
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■-< START >-■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+// FILE-PATH: src/constants/config.ts
+
+// src/constants/config.ts
+
+export const QUALITY = {
+    LOW: '1',
+    NORMAL: '2',
+    HIGH: '3',
+} as const;
+
+export type QualityChoice = (typeof QUALITY)[keyof typeof QUALITY];
+
+export type QualityLevel = 1 | 2 | 3;
+
+export const QUALITY_CHOICES: readonly QualityChoice[] = [QUALITY.LOW, QUALITY.NORMAL, QUALITY.HIGH];
+
+export function isQualityChoice(value: string): value is QualityChoice {
+    return (QUALITY_CHOICES as readonly string[]).includes(value);
+}
+
+export function toQualityLevel(value: QualityChoice): QualityLevel {
+    switch (value) {
+        case QUALITY.LOW:
+            return 1;
+
+        case QUALITY.NORMAL:
+            return 2;
+
+        case QUALITY.HIGH:
+            return 3;
+    }
+}
+
+export const SKYLIGHT = {
+    NONE: '0',
+    DIM: '1',
+    NORMAL: '2',
+} as const;
+
+export type SkylightChoice = (typeof SKYLIGHT)[keyof typeof SKYLIGHT];
+
+export type SkylightLevel = 0 | 1 | 2;
+
+export const SKYLIGHT_CHOICES: readonly SkylightChoice[] = [SKYLIGHT.NONE, SKYLIGHT.DIM, SKYLIGHT.NORMAL];
+
+export function isSkylightChoice(value: string): value is SkylightChoice {
+    return (SKYLIGHT_CHOICES as readonly string[]).includes(value);
+}
+
+export function toSkylightLevel(value: SkylightChoice): SkylightLevel {
+    switch (value) {
+        case SKYLIGHT.NONE:
+            return 0;
+
+        case SKYLIGHT.DIM:
+            return 1;
+
+        case SKYLIGHT.NORMAL:
+            return 2;
+    }
+}
+
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■-<  END  >-■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+// FILE NAME: : config.ts 
+// TYPE     : .TS
+// PATH     : src/constants/config.ts
+// PROCESSED: 2026-10-09T19:04:39.778Z
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■-<  END  >-■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
