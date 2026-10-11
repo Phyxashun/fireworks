@@ -1,2 +1,7 @@
 dist/
 coverage/
+.vscode/
+ALL/
+node_modules/
+*.lock
+*.uml
